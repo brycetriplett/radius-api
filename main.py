@@ -58,7 +58,7 @@ def error_logging(func):
 def disconnect():
     radius_username = request.args['d']
 
-    @error_logging
+    #@error_logging
     def process(radius_username):
         username, session_id, rta_data = get_radius_data(radius_username)
 
@@ -82,7 +82,7 @@ def disconnect():
 def change_speed():
     radius_username = request.args['d']
 
-    @error_logging
+    #@error_logging
     def process(radius_username):
         username, session_id, rta_data = get_radius_data(radius_username)
         attributes = {
