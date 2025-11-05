@@ -104,13 +104,13 @@ def change_speed():
 
 @contextmanager
 def sql_connect(server, database, username, password):
-    conn = connect((
+    conn = connect(
         'DRIVER={ODBC Driver 17 for SQL Server};'
         f'SERVER={server};'
         f'DATABASE={database};'
         f'UID={username};'
         f'PWD={password};'
-    ))
+    )
     
     try:
         yield conn.cursor()
