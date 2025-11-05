@@ -110,6 +110,9 @@ def sql_connect(server, database, username, password):
         f'DATABASE={database};'
         f'UID={username};'
         f'PWD={password};'
+        'Encrypt=no;'
+        'TrustServerCertificate=yes;'
+        'Connection Timeout=5;'
     )
     
     try:
