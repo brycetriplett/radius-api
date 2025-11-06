@@ -121,7 +121,7 @@ def disconnect():
     if not radius_username:
         return {"error": "Missing parameter 'd'"}, 400
 
-    @error_logging
+    #@error_logging
     def process(radius_username):
         username, session_id, rta_data = get_radius_data(radius_username)
         attributes = {
@@ -142,7 +142,7 @@ def change_speed():
     if not radius_username:
         return {"error": "Missing parameter 'd'"}, 400
 
-    @error_logging
+    #@error_logging
     def process(radius_username):
         username, session_id, rta_data = get_radius_data(radius_username)
         attributes = {
