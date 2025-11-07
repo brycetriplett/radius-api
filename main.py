@@ -44,7 +44,7 @@ def get_connection():
     Returns a working pyodbc connection using the {SQL Server} driver.
     """
     conn_str = (
-        'DRIVER={ODBC Driver 17 for SQL Server};'
+        'DRIVER={ODBC Driver 18 for SQL Server};'
         f"SERVER={sql_kws['server']};"
         f"DATABASE={sql_kws['database']};"
         f"UID={sql_kws['username']};"
