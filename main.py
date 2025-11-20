@@ -1,12 +1,11 @@
 #!/usr/bin/env python3
 
-#!/usr/bin/env python3
-
 import threading
 import traceback
 import requests
 import pandas as pd
 import pyodbc
+import urllib
 
 from datetime import datetime
 from flask import Flask, request
@@ -40,24 +39,37 @@ api = Flask(__name__)
 
 
 # ==========================
-# SQLAlchemy Engine
+# SQLAlchemy Engine (Fixed)
 # ==========================
 def get_engine():
     """
-    Creates a SQLAlchemy engine using pyodbc and ODBC Driver 18 for SQL Server.
-    Using SQLAlchemy removes pandas' DBAPI warning.
+    Returns a SQLAlchemy engine using a URL-encoded ODBC connection string.
+    This format avoids HYT00 login timeout issues and is fully pandas-compatible.
     """
-    conn_str = (
-        f"mssql+pyodbc://{sql_kws['username']}:{sql_kws['password']}"
-        f"@{sql_kws['server']}/{sql_kws['database']}?"
-        "driver=ODBC+Driver+18+for+SQL+Server"
-        "&Encrypt=no"
-        "&TrustServerCertificate=yes"
+    odbc_str = (
+        "DRIVER={ODBC Driver 18 for SQL Server};"
+        f"SERVER={sql_kws['server']};"
+        f"DATABASE={sql_kws['database']};"
+        f"UID={sql_kws['username']};"
+        f"PWD={sql_kws['password']};"
+        "Encrypt=no;"
+        "TrustServerCertificate=yes;"
     )
-    return create_engine(conn_str, fast_executemany=True)
+
+    # SQLAlchemy requires the ODBC connection string to be URL encoded
+    encoded = urllib.parse.quote_plus(odbc_str)
+
+    engine = create_engine(
+        "mssql+pyodbc:///?odbc_connect=" + encoded,
+        fast_executemany=True,
+        pool_pre_ping=True,
+        pool_recycle=1800,
+    )
+
+    return engine
 
 
-# Create global engine (recommended)
+# Create a single shared engine for all queries
 engine = get_engine()
 
 
@@ -84,9 +96,10 @@ def error_logging(func):
 
 
 # ==========================
-# Data query logic (SQLAlchemy + pandas)
+# Data query logic
 # ==========================
 def get_radius_data(username):
+
     # --- Session ID ---
     query_session = """
         SELECT rco_session_id
@@ -122,7 +135,7 @@ def get_radius_data(username):
 
 
 # ==========================
-# Flask Routes
+# Flask routes
 # ==========================
 @api.route('/disconnect', methods=['POST', 'GET'])
 def disconnect():
