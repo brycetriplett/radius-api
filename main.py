@@ -1,5 +1,7 @@
 #!/usr/bin/env python3
 
+#!/usr/bin/env python3
+
 import threading
 import traceback
 import requests
@@ -11,6 +13,7 @@ from flask import Flask, request
 from pyrad.client import Client
 from pyrad import dictionary, packet
 from configparser import ConfigParser
+from sqlalchemy import create_engine
 
 
 # ==========================
@@ -37,23 +40,25 @@ api = Flask(__name__)
 
 
 # ==========================
-# Database connection helper
+# SQLAlchemy Engine
 # ==========================
-def get_connection():
+def get_engine():
     """
-    Returns a working pyodbc connection using the {SQL Server} driver.
+    Creates a SQLAlchemy engine using pyodbc and ODBC Driver 18 for SQL Server.
+    Using SQLAlchemy removes pandas' DBAPI warning.
     """
     conn_str = (
-        'DRIVER={ODBC Driver 18 for SQL Server};'
-        f"SERVER={sql_kws['server']};"
-        f"DATABASE={sql_kws['database']};"
-        f"UID={sql_kws['username']};"
-        f"PWD={sql_kws['password']};"
-        'Encrypt=no;'
-        'TrustServerCertificate=yes;'
-        'Connection Timeout=5;'
+        f"mssql+pyodbc://{sql_kws['username']}:{sql_kws['password']}"
+        f"@{sql_kws['server']}/{sql_kws['database']}?"
+        "driver=ODBC+Driver+18+for+SQL+Server"
+        "&Encrypt=no"
+        "&TrustServerCertificate=yes"
     )
-    return pyodbc.connect(conn_str)
+    return create_engine(conn_str, fast_executemany=True)
+
+
+# Create global engine (recommended)
+engine = get_engine()
 
 
 # ==========================
@@ -66,7 +71,6 @@ def error_logging(func):
 
         except TypeError:
             # Happens when there is no current RADIUS login
-            # Not a problem, so we silently pass
             pass
 
         except Exception:
@@ -80,40 +84,45 @@ def error_logging(func):
 
 
 # ==========================
-# Data query logic (now pandas)
+# Data query logic (SQLAlchemy + pandas)
 # ==========================
 def get_radius_data(username):
-    with get_connection() as conn:
-        # --- Session ID ---
-        query_session = """
-            SELECT rco_session_id
-            FROM radius_calls_online
-            WHERE rco_username = ?;
-        """
-        df_session = pd.read_sql(query_session, conn, params=[username])
-        if df_session.empty:
-            raise TypeError(f"No session found for user: {username}")
-        session_id = df_session.iloc[0]['rco_session_id']
+    # --- Session ID ---
+    query_session = """
+        SELECT rco_session_id
+        FROM radius_calls_online
+        WHERE rco_username = ?;
+    """
 
-        # --- rta_data ---
-        query_rta = """
-            SELECT rta_data
-            FROM radius_type_attribute AS a
-            INNER JOIN radius_type AS b ON a.rta_type = b.rt_id
-            INNER JOIN radius_data AS c ON b.rt_name = c.radius_type
-            WHERE a.rta_sortorder = 6
-            AND username = ?;
-        """
-        df_rta = pd.read_sql(query_rta, conn, params=[username])
-        if df_rta.empty:
-            raise ValueError(f"No rta_data found for user: {username}")
-        rta_data = df_rta.iloc[0]['rta_data']
+    df_session = pd.read_sql(query_session, engine, params=[username])
+
+    if df_session.empty:
+        raise TypeError(f"No session found for user: {username}")
+
+    session_id = df_session.iloc[0]['rco_session_id']
+
+    # --- rta_data ---
+    query_rta = """
+        SELECT rta_data
+        FROM radius_type_attribute AS a
+        INNER JOIN radius_type AS b ON a.rta_type = b.rt_id
+        INNER JOIN radius_data AS c ON b.rt_name = c.radius_type
+        WHERE a.rta_sortorder = 6
+        AND username = ?;
+    """
+
+    df_rta = pd.read_sql(query_rta, engine, params=[username])
+
+    if df_rta.empty:
+        raise ValueError(f"No rta_data found for user: {username}")
+
+    rta_data = df_rta.iloc[0]['rta_data']
 
     return (username, session_id, rta_data)
 
 
 # ==========================
-# Flask routes
+# Flask Routes
 # ==========================
 @api.route('/disconnect', methods=['POST'])
 def disconnect():
@@ -121,7 +130,7 @@ def disconnect():
     if not radius_username:
         return {"error": "Missing parameter 'd'"}, 400
 
-    #@error_logging
+    # @error_logging
     def process(radius_username):
         username, session_id, rta_data = get_radius_data(radius_username)
         attributes = {
@@ -142,7 +151,7 @@ def change_speed():
     if not radius_username:
         return {"error": "Missing parameter 'd'"}, 400
 
-    #@error_logging
+    # @error_logging
     def process(radius_username):
         username, session_id, rta_data = get_radius_data(radius_username)
         attributes = {
