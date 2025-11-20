@@ -124,7 +124,7 @@ def get_radius_data(username):
 # ==========================
 # Flask Routes
 # ==========================
-@api.route('/disconnect', methods=['POST'])
+@api.route('/disconnect', methods=['POST', 'GET'])
 def disconnect():
     radius_username = request.args.get('d')
     if not radius_username:
@@ -145,7 +145,7 @@ def disconnect():
     return '', 200
 
 
-@api.route('/changespeed', methods=['POST'])
+@api.route('/changespeed', methods=['POST', 'GET'])
 def change_speed():
     radius_username = request.args.get('d')
     if not radius_username:
