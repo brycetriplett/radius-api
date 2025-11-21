@@ -120,8 +120,8 @@ def get_radius_data(username):
         FROM radius_type_attribute AS a
         INNER JOIN radius_type AS b ON a.rta_type = b.rt_id
         INNER JOIN radius_data AS c ON b.rt_name = c.radius_type
-        WHERE a.rta_sortorder = 6
-        AND username = ?;
+        WHERE username = ?
+        AND rta_attribute = 31;
     """
 
     df_rta = pd.read_sql(query_rta, engine, params=[username])
